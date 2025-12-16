@@ -20,42 +20,36 @@ def essence_mali(page: ft.Page):
     page.scroll = "auto"
 
     # --- Variables Globales ---
-    # On va stocker la liste complète ici pour pouvoir filtrer sans recharger Internet
+    # On stocke la liste ici pour le filtre
     liste_complete_stations = []
 
     # --- En-tête ---
     titre = ft.Text("⛽ Info Carburant", size=24, weight="bold", color="blue")
     sous_titre = ft.Text("Bamako - En temps réel", size=14, color="grey")
 
-    # --- NOUVEAU : La Barre de Recherche ---
+    # --- LA BARRE DE RECHERCHE (Corrigée pour Render) ---
     barre_recherche = ft.TextField(
         hint_text="🔎 Chercher (ex: Faladié, Shell...)",
         border_radius=10,
         bgcolor="white",
-        prefix_icon=ft.icons.SEARCH,
-        on_change=lambda e: filtrer_liste()  # Appelle la fonction quand on tape
+        prefix_icon="search",  # <-- CORRECTION ICI (texte simple au lieu de ft.icons)
+        on_change=lambda e: filtrer_liste()
     )
 
     divider = ft.Divider(height=10, thickness=1)
     colonne_stations = ft.Column()
 
-    # --- FONCTION 1 : Charger les données depuis Internet ---
+    # --- FONCTION 1 : Charger les données ---
     def charger_donnees():
-        # On dit à l'utilisateur que ça charge...
         colonne_stations.controls.clear()
+        # Petite barre de chargement
         colonne_stations.controls.append(ft.ProgressBar(width=200, color="blue"))
         page.update()
 
         try:
-            # On récupère TOUT depuis Supabase
             reponse = supabase.table('stations').select("*").order('id').execute()
-
-            # On sauvegarde la liste dans notre variable globale
-            # "nonlocal" permet de modifier la variable qui est hors de la fonction
             nonlocal liste_complete_stations
             liste_complete_stations = reponse.data
-
-            # Une fois chargé, on affiche (en appliquant le filtre s'il y en a un)
             filtrer_liste()
 
         except Exception as e:
@@ -63,25 +57,20 @@ def essence_mali(page: ft.Page):
             colonne_stations.controls.append(ft.Text(f"Erreur : {e}", color="red"))
             page.update()
 
-    # --- NOUVEAU : FONCTION DE FILTRAGE ---
+    # --- FONCTION DE FILTRAGE ---
     def filtrer_liste():
-        # 1. On nettoie l'écran
         colonne_stations.controls.clear()
-
-        # 2. On regarde ce que l'utilisateur a écrit (en minuscule)
         texte_recherche = barre_recherche.value.lower() if barre_recherche.value else ""
 
-        # 3. On parcourt notre liste en mémoire
         for station in liste_complete_stations:
-            # On met le nom et le quartier en minuscule pour comparer
             nom = station['nom'].lower()
             quartier = station['quartier'].lower()
 
-            # Si le texte est dans le nom OU dans le quartier, on affiche
+            # Si le texte est dans le nom OU le quartier
             if texte_recherche in nom or texte_recherche in quartier:
                 creer_carte(station)
 
-        # 4. Si on ne trouve rien
+        # Message si rien n'est trouvé
         if len(colonne_stations.controls) == 0:
             colonne_stations.controls.append(
                 ft.Text("Aucune station trouvée...", italic=True, color="grey")
@@ -91,7 +80,6 @@ def essence_mali(page: ft.Page):
 
     # --- FONCTION CRÉATION DE CARTE ---
     def creer_carte(data):
-
         if data['statut'] == "Disponible":
             theme_color = "green"
             bg_color = "green50"
@@ -111,17 +99,13 @@ def essence_mali(page: ft.Page):
         def changer_statut(nouveau_statut):
             maintenant = datetime.now().strftime("%H:%M")
 
-            # Mise à jour Supabase
             supabase.table('stations').update({
                 "statut": nouveau_statut,
                 "heure": maintenant
             }).eq("id", data['id']).execute()
 
-            # Feedback
             page.snack_bar = ft.SnackBar(ft.Text(f"Mise à jour reçue pour {data['nom']}"))
             page.snack_bar.open = True
-
-            # On recharge pour voir les changements
             charger_donnees()
 
         # Boutons
@@ -141,7 +125,7 @@ def essence_mali(page: ft.Page):
             on_click=lambda e: changer_statut("Rupture")
         )
 
-        # Carte
+        # Structure de la carte
         carte = ft.Container(
             padding=15,
             margin=5,
@@ -174,12 +158,10 @@ def essence_mali(page: ft.Page):
         colonne_stations.controls.append(carte)
 
     # --- LANCEMENT ---
-    # On ajoute la barre de recherche à l'écran
     page.add(titre, sous_titre, barre_recherche, divider, colonne_stations)
-
     charger_donnees()
 
 
-# Configuration pour le Web (Render)
+# Configuration spéciale pour Render
 port = int(os.environ.get("PORT", 8550))
 ft.app(target=essence_mali, view=ft.WEB_BROWSER, host="0.0.0.0", port=port)
