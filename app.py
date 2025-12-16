@@ -13,7 +13,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def essence_mali(page: ft.Page):
     # --- Configuration de la page ---
-    page.title = "Dispo Essence Bamako"  # Titre officiel
+    page.title = "Dispo Essence Bamako"
     page.window_width = 390
     page.window_height = 844
     page.bgcolor = "white"
@@ -48,7 +48,6 @@ def essence_mali(page: ft.Page):
         page.update()
 
         try:
-            # Récupération des données depuis Supabase
             reponse = supabase.table('stations').select("*").order('id').execute()
             nonlocal liste_complete_stations
             liste_complete_stations = reponse.data
@@ -81,14 +80,15 @@ def essence_mali(page: ft.Page):
             )
         page.update()
 
-    # --- CRÉATION DE LA CARTE (Mode Sécurisé) ---
+    # --- CRÉATION DE LA CARTE (AVEC SÉLECTION CARBURANT) ---
     def creer_carte(data):
-        # 1. Couleurs et Icônes
-        if data['statut'] == "Disponible":
+        # 1. Couleurs et Icônes (Logique visuelle)
+        statut_lower = data['statut'].lower()
+        if "disponible" in statut_lower:
             theme_color = "green"
             bg_color = "green50"
             icone_visuel = "check_circle"
-        elif data['statut'] == "Rupture":
+        elif "rupture" in statut_lower:
             theme_color = "red"
             bg_color = "red50"
             icone_visuel = "cancel"
@@ -102,11 +102,12 @@ def essence_mali(page: ft.Page):
         # Zone dynamique (Boutons <-> Mot de passe)
         zone_actions = ft.Container()
 
-        # A. Mode Saisie du Code
-        def afficher_saisie(nouveau_statut):
+        # A. Mode Saisie du Code ET du Type de Carburant
+        def afficher_saisie(action_statut):
+            # Champ Mot de Passe
             champ_code = ft.TextField(
                 password=True,
-                width=80,
+                width=70,
                 text_size=12,
                 hint_text="Code",
                 content_padding=5,
@@ -115,19 +116,36 @@ def essence_mali(page: ft.Page):
                 border_radius=5
             )
 
+            # Menu Déroulant (Essence ou Diesel)
+            choix_carburant = ft.Dropdown(
+                width=85,
+                text_size=12,
+                content_padding=5,
+                options=[
+                    ft.dropdown.Option("Essence"),
+                    ft.dropdown.Option("Diesel"),
+                    ft.dropdown.Option("Tout"),
+                ],
+                value="Essence",  # Valeur par défaut
+                bgcolor="white",
+                border_radius=5,
+            )
+
             def valider_action(e):
                 code_attendu = str(data.get('code_secret', ''))
 
                 if champ_code.value == code_attendu and code_attendu:
-                    # Mise à jour Supabase
+                    # On combine le Carburant + Le Statut (ex: "Essence : Disponible")
+                    nouveau_statut_complet = f"{choix_carburant.value} : {action_statut}"
+
                     maintenant = datetime.now().strftime("%H:%M")
                     try:
                         supabase.table('stations').update({
-                            "statut": nouveau_statut,
+                            "statut": nouveau_statut_complet,
                             "heure": maintenant
                         }).eq("id", data['id']).execute()
 
-                        page.snack_bar = ft.SnackBar(ft.Text(f"Succès ! Station {nouveau_statut}"), bgcolor="green")
+                        page.snack_bar = ft.SnackBar(ft.Text(f"Succès ! {nouveau_statut_complet}"), bgcolor="green")
                         page.snack_bar.open = True
                         charger_donnees()
                     except:
@@ -141,14 +159,16 @@ def essence_mali(page: ft.Page):
             def annuler_action(e):
                 remettre_boutons()
 
+            # Affichage de la ligne : [Code] [Menu] [OK] [X]
             zone_actions.content = ft.Row(
                 controls=[
                     champ_code,
+                    choix_carburant,
                     ft.IconButton(icon="check", icon_color="green", on_click=valider_action, tooltip="Valider"),
                     ft.IconButton(icon="close", icon_color="grey", on_click=annuler_action, tooltip="Annuler"),
                 ],
                 alignment="center",
-                spacing=0
+                spacing=5
             )
             zone_actions.update()
 
@@ -171,7 +191,6 @@ def essence_mali(page: ft.Page):
 
             zone_actions.content = ft.Row([btn_oui, btn_non], alignment="center")
 
-            # Sécurité anti-crash
             if zone_actions.page:
                 zone_actions.update()
 
