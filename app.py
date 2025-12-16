@@ -68,4 +68,125 @@ def essence_mali(page: ft.Page):
     def creer_carte(data):
         # 1. Définition des couleurs
         if data['statut'] == "Disponible":
-            theme_color = "
+            theme_color = "green"
+            bg_color = "green50"
+            icone_visuel = "check_circle"
+        elif data['statut'] == "Rupture":
+            theme_color = "red"
+            bg_color = "red50"
+            icone_visuel = "cancel"
+        else:
+            theme_color = "grey"
+            bg_color = "blue50"
+            icone_visuel = "circle_outlined"
+
+        heure_txt = data['heure'] if data['heure'] else "-"
+
+        # Zone qui va changer (soit les boutons, soit le mot de passe)
+        zone_actions = ft.Container()
+
+        # --- LOGIQUE : AFFICHER LA SAISIE DU CODE ---
+        def afficher_saisie(nouveau_statut):
+            champ_code = ft.TextField(
+                password=True,
+                width=100,
+                text_size=12,
+                hint_text="Code?",
+                content_padding=5,
+                text_align="center",
+                bgcolor="white"
+            )
+
+            def valider_action(e):
+                code_attendu = str(data.get('code_secret', ''))
+
+                if champ_code.value == code_attendu:
+                    # Code Bon -> Envoi
+                    maintenant = datetime.now().strftime("%H:%M")
+                    try:
+                        supabase.table('stations').update({
+                            "statut": nouveau_statut,
+                            "heure": maintenant
+                        }).eq("id", data['id']).execute()
+
+                        page.snack_bar = ft.SnackBar(ft.Text("Mise à jour réussie !"))
+                        page.snack_bar.open = True
+                        charger_donnees()  # Recharge tout pour remettre les boutons
+                    except Exception as ex:
+                        print(ex)
+                else:
+                    champ_code.border_color = "red"
+                    champ_code.update()
+
+            def annuler_action(e):
+                # On remet les boutons normaux
+                remettre_boutons()
+
+            # On remplace les boutons par : [Champ Code] [OK] [X]
+            zone_actions.content = ft.Row(
+                controls=[
+                    champ_code,
+                    ft.IconButton(icon="check", icon_color="green", on_click=valider_action),
+                    ft.IconButton(icon="close", icon_color="grey", on_click=annuler_action),
+                ],
+                alignment="center",
+                spacing=2
+            )
+            zone_actions.update()
+
+        # --- LOGIQUE : AFFICHER LES BOUTONS NORMAUX ---
+        def remettre_boutons():
+            btn_oui = ft.IconButton(
+                icon="local_gas_station",
+                icon_color="green",
+                bgcolor="white",
+                on_click=lambda e: afficher_saisie("Disponible")
+            )
+            btn_non = ft.IconButton(
+                icon="highlight_off",
+                icon_color="red",
+                bgcolor="white",
+                on_click=lambda e: afficher_saisie("Rupture")
+            )
+
+            zone_actions.content = ft.Row([btn_oui, btn_non], alignment="center")
+            zone_actions.update()
+
+        # Initialisation : On met les boutons par défaut
+        remettre_boutons()
+
+        # Construction de la carte visuelle
+        carte = ft.Container(
+            padding=15, margin=5, bgcolor=bg_color, border_radius=10,
+            content=ft.Row(
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text(data['nom'], weight="bold", size=16),
+                            ft.Text(data['quartier'], italic=True, size=12, color="grey"),
+                            ft.Row([
+                                ft.Icon(icone_visuel, color=theme_color, size=16),
+                                ft.Text(data['statut'], color=theme_color, weight="bold", size=12),
+                            ])
+                        ],
+                        expand=True
+                    ),
+                    ft.Column(
+                        controls=[
+                            ft.Text(f"MàJ : {heure_txt}", size=10, color="grey"),
+                            zone_actions  # C'est ici que la magie opère
+                        ],
+                        horizontal_alignment="center"
+                    )
+                ],
+                alignment="spaceBetween"
+            )
+        )
+        colonne_stations.controls.append(carte)
+
+    page.add(titre, sous_titre, barre_recherche, divider, colonne_stations)
+    charger_donnees()
+
+
+port = int(os.environ.get("PORT", 8550))
+ft.app(target=essence_mali, view=ft.WEB_BROWSER, host="0.0.0.0", port=port)
