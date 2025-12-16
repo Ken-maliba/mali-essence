@@ -11,7 +11,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def essence_mali(page: ft.Page):
-    page.title = "Dispo Essence Bamako (Plan B)"
+    page.title = "Dispo Essence Bamako (V7 Stable)"
     page.window_width = 390
     page.window_height = 844
     page.bgcolor = "white"
@@ -64,7 +64,7 @@ def essence_mali(page: ft.Page):
             colonne_stations.controls.append(ft.Text("Rien trouvé...", italic=True, color="grey"))
         page.update()
 
-    # --- NOUVELLE LOGIQUE D'AFFICHAGE ---
+    # --- CORRECTION DU BUG D'AFFICHAGE ---
     def creer_carte(data):
         # 1. Définition des couleurs
         if data['statut'] == "Disponible":
@@ -100,6 +100,7 @@ def essence_mali(page: ft.Page):
             def valider_action(e):
                 code_attendu = str(data.get('code_secret', ''))
 
+                # Vérification
                 if champ_code.value == code_attendu:
                     # Code Bon -> Envoi
                     maintenant = datetime.now().strftime("%H:%M")
@@ -111,7 +112,7 @@ def essence_mali(page: ft.Page):
 
                         page.snack_bar = ft.SnackBar(ft.Text("Mise à jour réussie !"))
                         page.snack_bar.open = True
-                        charger_donnees()  # Recharge tout pour remettre les boutons
+                        charger_donnees()
                     except Exception as ex:
                         print(ex)
                 else:
@@ -122,7 +123,7 @@ def essence_mali(page: ft.Page):
                 # On remet les boutons normaux
                 remettre_boutons()
 
-            # On remplace les boutons par : [Champ Code] [OK] [X]
+            # Mise à jour de la zone
             zone_actions.content = ft.Row(
                 controls=[
                     champ_code,
@@ -150,9 +151,13 @@ def essence_mali(page: ft.Page):
             )
 
             zone_actions.content = ft.Row([btn_oui, btn_non], alignment="center")
-            zone_actions.update()
 
-        # Initialisation : On met les boutons par défaut
+            # --- LA CORRECTION EST ICI ---
+            # On ne fait .update() QUE si la zone est déjà sur la page
+            if zone_actions.page:
+                zone_actions.update()
+
+        # Initialisation : On met les boutons par défaut (sans forcer l'update)
         remettre_boutons()
 
         # Construction de la carte visuelle
@@ -174,7 +179,7 @@ def essence_mali(page: ft.Page):
                     ft.Column(
                         controls=[
                             ft.Text(f"MàJ : {heure_txt}", size=10, color="grey"),
-                            zone_actions  # C'est ici que la magie opère
+                            zone_actions
                         ],
                         horizontal_alignment="center"
                     )
