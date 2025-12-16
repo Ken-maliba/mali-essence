@@ -23,7 +23,7 @@ def essence_mali(page: ft.Page):
     page.assets_dir = "assets"
 
     page.background_image = ft.Image(
-        src="/fond.PNG",
+        src="/fond.png",
         fit=ft.ImageFit.COVER,
         opacity=0.2,
         repeat=ft.ImageRepeat.NO_REPEAT
