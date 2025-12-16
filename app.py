@@ -3,44 +3,31 @@ from datetime import datetime
 from supabase import create_client, Client
 import os
 
-# --- DIAGNOSTIC AU DÉMARRAGE ---
-print("--- VÉRIFICATION ---")
-try:
-    if "fond.png" in os.listdir("assets"):
-        print("✅ SUCCÈS : L'image est bien là ! Elle devrait s'afficher.")
-    else:
-        print("⚠️ ATTENTION : Le fichier s'appelle peut-être fond.png.png ?")
-except:
-    print("❌ ERREUR : Dossier assets introuvable.")
-print("--------------------")
-
 # --- 1. CONFIGURATION SUPABASE ---
 SUPABASE_URL = "https://bxhieuqyarmajfiudhaw.supabase.co"
 SUPABASE_KEY = "sb_publishable_SzBqrCTbXLLF8QKneLpVtA_fW-TxCP3"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def essence_mali(page: ft.Page):
-    # Config Page
     page.title = "Dispo Essence Bamako"
     page.window_width = 390
     page.window_height = 844
     page.scroll = "auto"
     page.theme_mode = ft.ThemeMode.LIGHT
     
-    # --- FOND D'ÉCRAN ---
-    page.assets_dir = "assets"  # Le dossier
-    
+    # --- TEST AVEC IMAGE INTERNET (INFAILLIBLE) ---
+    # Cette image vient d'Unsplash, elle marche forcément.
     page.background_image = ft.Image(
-        src="/fond.png",         # <--- J'ai remis le slash "/" indispensable
+        src="https://images.unsplash.com/photo-1527018601619-a508a2be00cd?q=80&w=1000&auto=format&fit=crop",
         fit=ft.ImageFit.COVER,   
-        opacity=0.3,             # Un peu plus visible
+        opacity=0.3,             
         repeat=ft.ImageRepeat.NO_REPEAT
     )
 
     # Variables
     liste_complete_stations = []
 
-    # UI Elements
+    # UI
     titre = ft.Text("⛽ Info Carburant", size=24, weight="bold", color="blue")
     sous_titre = ft.Text("Bamako - En temps réel", size=14, color="grey")
     
@@ -75,26 +62,15 @@ def essence_mali(page: ft.Page):
     def filtrer_liste():
         colonne_stations.controls.clear()
         texte_recherche = barre_recherche.value.lower() if barre_recherche.value else ""
-        
         compteur = 0
         for station in liste_complete_stations:
             nom = station['nom'].lower()
             quartier = station['quartier'].lower()
-            
             if texte_recherche in nom or texte_recherche in quartier:
                 creer_carte(station)
                 compteur += 1
-        
         if compteur == 0:
-            colonne_stations.controls.append(
-                ft.Container(
-                    content=ft.Text("Aucune station trouvée...", italic=True, color="grey"),
-                    alignment=ft.alignment.center,
-                    padding=20,
-                    bgcolor="#E6FFFFFF",
-                    border_radius=10
-                )
-            )
+            colonne_stations.controls.append(ft.Container(content=ft.Text("Aucune station trouvée...", italic=True, color="grey"), alignment=ft.alignment.center, padding=20, bgcolor="#E6FFFFFF", border_radius=10))
         page.update()
 
     def creer_carte(data):
@@ -142,20 +118,10 @@ def essence_mali(page: ft.Page):
 
         remettre_boutons()
 
-        carte = ft.Container(
-            padding=15, bgcolor=bg_color, border_radius=12,
-            content=ft.Row(controls=[
-                ft.Column(controls=[ft.Text(data['nom'], weight="bold", size=16), ft.Text(data['quartier'], italic=True, size=12, color="grey"), ft.Container(height=5), ft.Row([ft.Icon(icone_visuel, color=theme_color, size=16), ft.Text(data['statut'], color=theme_color, weight="bold", size=12)], spacing=5)], expand=True),
-                ft.Column(controls=[ft.Text(f"MàJ : {heure_txt}", size=10, color="grey"), zone_actions], horizontal_alignment="center", alignment="center")
-            ], alignment="spaceBetween", vertical_alignment="center")
-        )
+        carte = ft.Container(padding=15, bgcolor=bg_color, border_radius=12, content=ft.Row(controls=[ft.Column(controls=[ft.Text(data['nom'], weight="bold", size=16), ft.Text(data['quartier'], italic=True, size=12, color="grey"), ft.Container(height=5), ft.Row([ft.Icon(icone_visuel, color=theme_color, size=16), ft.Text(data['statut'], color=theme_color, weight="bold", size=12)], spacing=5)], expand=True), ft.Column(controls=[ft.Text(f"MàJ : {heure_txt}", size=10, color="grey"), zone_actions], horizontal_alignment="center", alignment="center")], alignment="spaceBetween", vertical_alignment="center"))
         colonne_stations.controls.append(carte)
 
-    header_container = ft.Container(
-        content=ft.Column([titre, sous_titre]),
-        padding=10, bgcolor="#CCFFFFFF", border_radius=10
-    )
-
+    header_container = ft.Container(content=ft.Column([titre, sous_titre]), padding=10, bgcolor="#CCFFFFFF", border_radius=10)
     page.add(ft.Container(height=10), header_container, ft.Container(height=10), barre_recherche, divider, colonne_stations)
     charger_donnees()
 
