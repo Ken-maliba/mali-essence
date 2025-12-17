@@ -8,50 +8,49 @@ SUPABASE_URL = "https://bxhieuqyarmajfiudhaw.supabase.co"
 SUPABASE_KEY = "sb_publishable_SzBqrCTbXLLF8QKneLpVtA_fW-TxCP3"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 def essence_mali(page: ft.Page):
+    # --- Configuration de la page ---
     page.title = "Dispo Essence Bamako"
     page.window_width = 390
     page.window_height = 844
-    page.scroll = "auto"
     page.theme_mode = ft.ThemeMode.LIGHT
-    
-    # --- TEST AVEC IMAGE INTERNET (INFAILLIBLE) ---
-    # Cette image vient d'Unsplash, elle marche forcément.
-    page.background_image = ft.Image(
-        src="https://images.unsplash.com/photo-1527018601619-a508a2be00cd?q=80&w=1000&auto=format&fit=crop",
-        fit=ft.ImageFit.COVER,   
-        opacity=0.3,             
-        repeat=ft.ImageRepeat.NO_REPEAT
-    )
+    page.padding = 0  # Important pour que l'image touche les bords
+    page.spacing = 0
+
+    # On dit à la page d'être transparente pour laisser voir notre conteneur
+    page.bgcolor = ft.colors.TRANSPARENT
 
     # Variables
     liste_complete_stations = []
 
-    # UI
+    # --- UI : Éléments ---
     titre = ft.Text("⛽ Info Carburant", size=24, weight="bold", color="blue")
     sous_titre = ft.Text("Bamako - En temps réel", size=14, color="grey")
-    
+
     barre_recherche = ft.TextField(
         hint_text="🔎 Chercher...",
         border_radius=10,
-        bgcolor="#E6FFFFFF", 
-        prefix_icon="search", 
+        bgcolor="#E6FFFFFF",
+        prefix_icon="search",
         content_padding=10,
         text_size=14,
         on_change=lambda e: filtrer_liste()
     )
 
     divider = ft.Divider(height=10, thickness=1, color="transparent")
-    colonne_stations = ft.Column(spacing=10)
 
-    # Fonctions
+    # Colonne qui contiendra les stations (avec scroll)
+    colonne_stations = ft.Column(spacing=10, scroll="auto", expand=True)
+
+    # --- FONCTIONS LOGIQUES ---
     def charger_donnees():
         colonne_stations.controls.clear()
         colonne_stations.controls.append(ft.ProgressBar(width=200, color="blue"))
         page.update()
         try:
             reponse = supabase.table('stations').select("*").order('id').execute()
-            nonlocal liste_complete_stations 
+            nonlocal liste_complete_stations
             liste_complete_stations = reponse.data
             filtrer_liste()
         except Exception as e:
@@ -70,24 +69,36 @@ def essence_mali(page: ft.Page):
                 creer_carte(station)
                 compteur += 1
         if compteur == 0:
-            colonne_stations.controls.append(ft.Container(content=ft.Text("Aucune station trouvée...", italic=True, color="grey"), alignment=ft.alignment.center, padding=20, bgcolor="#E6FFFFFF", border_radius=10))
+            colonne_stations.controls.append(
+                ft.Container(content=ft.Text("Aucune station trouvée...", italic=True, color="grey"),
+                             alignment=ft.alignment.center, padding=20, bgcolor="#E6FFFFFF", border_radius=10))
         page.update()
 
     def creer_carte(data):
         statut_lower = data['statut'].lower()
         if "disponible" in statut_lower:
-            theme_color = "green"; bg_color = "#F2E8F5E9"; icone_visuel = "check_circle"
+            theme_color = "green";
+            bg_color = "#F2E8F5E9";
+            icone_visuel = "check_circle"
         elif "rupture" in statut_lower:
-            theme_color = "red"; bg_color = "#F2FFEBEE"; icone_visuel = "cancel"
+            theme_color = "red";
+            bg_color = "#F2FFEBEE";
+            icone_visuel = "cancel"
         else:
-            theme_color = "grey"; bg_color = "#F2E3F2FD"; icone_visuel = "circle_outlined"
+            theme_color = "grey";
+            bg_color = "#F2E3F2FD";
+            icone_visuel = "circle_outlined"
 
         heure_txt = data['heure'] if data['heure'] else "-"
         zone_actions = ft.Container()
 
         def afficher_saisie(action_statut):
-            champ_code = ft.TextField(password=True, width=70, text_size=12, hint_text="Code", content_padding=5, text_align="center", bgcolor="white", border_radius=5)
-            choix_carburant = ft.Dropdown(width=85, text_size=12, content_padding=5, options=[ft.dropdown.Option("Essence"), ft.dropdown.Option("Gasoil"), ft.dropdown.Option("Tout")], value="Essence", bgcolor="white", border_radius=5)
+            champ_code = ft.TextField(password=True, width=70, text_size=12, hint_text="Code", content_padding=5,
+                                      text_align="center", bgcolor="white", border_radius=5)
+            choix_carburant = ft.Dropdown(width=85, text_size=12, content_padding=5,
+                                          options=[ft.dropdown.Option("Essence"), ft.dropdown.Option("Gasoil"),
+                                                   ft.dropdown.Option("Tout")], value="Essence", bgcolor="white",
+                                          border_radius=5)
 
             def valider_action(e):
                 code_attendu = str(data.get('code_secret', ''))
@@ -97,33 +108,94 @@ def essence_mali(page: ft.Page):
                     nouveau_statut_complet = f"{texte_final} : {action_statut}"
                     try:
                         maintenant = datetime.now().strftime("%H:%M")
-                        supabase.table('stations').update({"statut": nouveau_statut_complet, "heure": maintenant}).eq("id", data['id']).execute()
-                        page.snack_bar = ft.SnackBar(ft.Text(f"Succès !"), bgcolor="green"); page.snack_bar.open = True; charger_donnees() 
+                        supabase.table('stations').update({"statut": nouveau_statut_complet, "heure": maintenant}).eq(
+                            "id", data['id']).execute()
+                        page.snack_bar = ft.SnackBar(ft.Text(f"Succès !"), bgcolor="green");
+                        page.snack_bar.open = True;
+                        charger_donnees()
                     except:
-                        page.snack_bar = ft.SnackBar(ft.Text("Erreur connexion"), bgcolor="red"); page.snack_bar.open = True; page.update()
+                        page.snack_bar = ft.SnackBar(ft.Text("Erreur connexion"), bgcolor="red");
+                        page.snack_bar.open = True;
+                        page.update()
                 else:
-                    champ_code.border_color = "red"; champ_code.update()
+                    champ_code.border_color = "red";
+                    champ_code.update()
 
             def annuler_action(e):
                 remettre_boutons()
 
-            zone_actions.content = ft.Row(controls=[champ_code, choix_carburant, ft.IconButton(icon="check", icon_color="green", on_click=valider_action), ft.IconButton(icon="close", icon_color="grey", on_click=annuler_action)], alignment="center", spacing=5)
+            zone_actions.content = ft.Row(controls=[champ_code, choix_carburant,
+                                                    ft.IconButton(icon="check", icon_color="green",
+                                                                  on_click=valider_action),
+                                                    ft.IconButton(icon="close", icon_color="grey",
+                                                                  on_click=annuler_action)], alignment="center",
+                                          spacing=5)
             zone_actions.update()
 
         def remettre_boutons():
-            btn_oui = ft.IconButton(icon="local_gas_station", icon_color="green", bgcolor="white", tooltip="Disponible", on_click=lambda e: afficher_saisie("Disponible"))
-            btn_non = ft.IconButton(icon="highlight_off", icon_color="red", bgcolor="white", tooltip="Rupture", on_click=lambda e: afficher_saisie("Rupture"))
+            btn_oui = ft.IconButton(icon="local_gas_station", icon_color="green", bgcolor="white", tooltip="Disponible",
+                                    on_click=lambda e: afficher_saisie("Disponible"))
+            btn_non = ft.IconButton(icon="highlight_off", icon_color="red", bgcolor="white", tooltip="Rupture",
+                                    on_click=lambda e: afficher_saisie("Rupture"))
             zone_actions.content = ft.Row([btn_oui, btn_non], alignment="center")
             if zone_actions.page: zone_actions.update()
 
         remettre_boutons()
 
-        carte = ft.Container(padding=15, bgcolor=bg_color, border_radius=12, content=ft.Row(controls=[ft.Column(controls=[ft.Text(data['nom'], weight="bold", size=16), ft.Text(data['quartier'], italic=True, size=12, color="grey"), ft.Container(height=5), ft.Row([ft.Icon(icone_visuel, color=theme_color, size=16), ft.Text(data['statut'], color=theme_color, weight="bold", size=12)], spacing=5)], expand=True), ft.Column(controls=[ft.Text(f"MàJ : {heure_txt}", size=10, color="grey"), zone_actions], horizontal_alignment="center", alignment="center")], alignment="spaceBetween", vertical_alignment="center"))
+        carte = ft.Container(padding=15, bgcolor=bg_color, border_radius=12, content=ft.Row(controls=[ft.Column(
+            controls=[ft.Text(data['nom'], weight="bold", size=16),
+                      ft.Text(data['quartier'], italic=True, size=12, color="grey"), ft.Container(height=5), ft.Row(
+                    [ft.Icon(icone_visuel, color=theme_color, size=16),
+                     ft.Text(data['statut'], color=theme_color, weight="bold", size=12)], spacing=5)], expand=True),
+                                                                                                      ft.Column(
+                                                                                                          controls=[
+                                                                                                              ft.Text(
+                                                                                                                  f"MàJ : {heure_txt}",
+                                                                                                                  size=10,
+                                                                                                                  color="grey"),
+                                                                                                              zone_actions],
+                                                                                                          horizontal_alignment="center",
+                                                                                                          alignment="center")],
+                                                                                            alignment="spaceBetween",
+                                                                                            vertical_alignment="center"))
         colonne_stations.controls.append(carte)
 
-    header_container = ft.Container(content=ft.Column([titre, sous_titre]), padding=10, bgcolor="#CCFFFFFF", border_radius=10)
-    page.add(ft.Container(height=10), header_container, ft.Container(height=10), barre_recherche, divider, colonne_stations)
+    # --- LA NOUVELLE STRUCTURE (La Grande Boîte) ---
+
+    # 1. Le contenu de l'application (Titre + Recherche + Liste)
+    contenu_app = ft.Column(
+        controls=[
+            ft.Container(height=10),
+            ft.Container(
+                content=ft.Column([titre, sous_titre]),
+                padding=10, bgcolor="#CCFFFFFF", border_radius=10
+            ),
+            ft.Container(height=10),
+            barre_recherche,
+            divider,
+            colonne_stations  # La liste scrollable
+        ],
+        spacing=0,
+        expand=True  # Prend toute la place disponible
+    )
+
+    # 2. Le Conteneur Principal (C'est lui qui porte l'image !)
+    # Si "assets/fond.png" ne marche pas, remplace le src par un lien internet pour tester.
+    grande_boite = ft.Container(
+        image_src="/fond.png",  # <--- L'IMAGE EST ICI MAINTENANT
+        image_fit=ft.ImageFit.COVER,
+        image_opacity=0.3,
+        content=ft.Container(  # Un sous-conteneur pour ajouter des marges si besoin
+            content=contenu_app,
+            padding=20
+        ),
+        expand=True  # Prend tout l'écran
+    )
+
+    # On ajoute la grande boîte à la page
+    page.add(grande_boite)
     charger_donnees()
 
+
 port = int(os.environ.get("PORT", 8550))
-ft.app(target=essence_mali, view=ft.WEB_BROWSER, host="0.0.0.0", port=port)
+ft.app(target=essence_mali, view=ft.WEB_BROWSER, host="0.0.0.0", port=port, assets_dir="assets")
